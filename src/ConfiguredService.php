@@ -12,7 +12,7 @@ use Symfony\Component\Yaml\Yaml;
  *
  * Configuration is available in member `$config`.
  */
-class ConfiguredService extends Service
+abstract class ConfiguredService extends Service
 {
 
     // subclass MUST override this, e.g. with __DIR__:

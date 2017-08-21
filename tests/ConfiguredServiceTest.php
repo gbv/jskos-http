@@ -9,6 +9,10 @@ class SampleService extends ConfiguredService
     {
         return $this->config;
     }
+    public function query(array $query, string $path='')
+    {
+        return new Page();
+    }
 }
 
 /**

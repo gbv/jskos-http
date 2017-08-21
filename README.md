@@ -10,7 +10,7 @@
 
 # Requirements
 
-Requires PHP 7.0 or PHP 7.1 and package [jskos](https://packagist.org/packages/gbv/jskos).
+Requires PHP 7.0 or PHP 7.1, package [jskos](https://packagist.org/packages/gbv/jskos), and any package listed as [php-http/client-implementation](https://packagist.org/providers/php-http/client-implementation).
 
 Bugs and feature request are [tracked on GitHub](https://github.com/gbv/jskos-http/issues).
 
@@ -18,10 +18,10 @@ Bugs and feature request are [tracked on GitHub](https://github.com/gbv/jskos-ht
 
 ## With composer
 
-Install the latest version with
+Install a [php-http/client-implementation](https://packagist.org/providers/php-http/client-implementation) and the latest version of this package, e.g.:
 
 ~~~bash
-composer require gbv/jskos-http
+composer require php-http/curl-client gbv/jskos-http
 ~~~
 
 This will automatically create `composer.json` for your project (unless it already exists) and add jskos-http as dependency. Composer also generates `vendor/autoload.php` to get autoloading of all dependencies: 

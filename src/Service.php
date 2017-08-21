@@ -15,19 +15,10 @@ const QueryModifiers = [
 /**
  * JSKOS API backend class.
  *
- * A %Service can be queried with a set of query parameters to return a Page
+ * A Service can be queried with a set of query parameters to return a Page
  * or Error. To actually implement JSKOS API, create a Server that passes HTTP
- * requests to the %Service. To implement a %Service, either provide a query
- * function on instanciation:
- *
- * @code
- * $service = new Service(function($query) { ... });
- * $server = new Server($service);
- * $server->run();
- * @endcode
- *
- * Or create a subclass that overrides the query method and possibly the
- * supportedParameters member variable:
+ * requests to the Service. A Service must implement the query method and possibly 
+ * the supportedParameters member variable:
  *
  * @code
  * class MyService extends \JSKOS\Service {
@@ -52,10 +43,8 @@ const QueryModifiers = [
  *
  * @see Server
  */
-class Service
+abstract class Service
 {
-    private $queryFunction; /**< callable */
-
     /**
      * List of supported query parameters.
      * @var array
@@ -77,17 +66,8 @@ class Service
     /**
      * Create a new service.
      */
-    public function __construct($queryFunction=null)
+    public function __construct()
     {
-        if (!isset($queryFunction)) {
-            $queryFunction = function () {
-                return new Page();
-            };
-        } elseif (!is_callable($queryFunction)) {
-            throw new \InvalidArgumentException('queryFunction must be callable');
-        }
-        $this->queryFunction = $queryFunction;
-
         $this->supportParameter('uri');
         if (count($this->supportedTypes) and !in_array('type', $this->supportedParameters)) {
             $this->supportParameter('type');
@@ -99,12 +79,7 @@ class Service
      *
      * @return Page|Error
      */
-    public function query(array $request, string $method='')
-    {
-        $method = $this->queryFunction;
-        # TODO: check whether result is actually a Page or Error
-        return $method($request);
-    }
+    abstract public function query(array $request, string $method='');
 
     /**
      * Enable support of a query parameter.

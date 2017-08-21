@@ -54,9 +54,9 @@ class Server implements \Psr\Log\LoggerAwareInterface
      * Create a new Server.
      * @param Service $service
      */
-    public function __construct(Service $service = null)
+    public function __construct(Service $service)
     {
-        $this->service = is_null($service) ? new Service() : $service;
+        $this->setService($service);
         $this->logger = new DefaultErrorLogger();
     }
 
@@ -67,15 +67,6 @@ class Server implements \Psr\Log\LoggerAwareInterface
     public function setService(Service $service)
     {
         $this->service = $service;
-    }
-
-    /**
-     * Gets the current Service.
-     * @return Service
-     */
-    public function getService()
-    {
-        return $this->service;
     }
 
     /**
@@ -220,7 +211,7 @@ class Server implements \Psr\Log\LoggerAwareInterface
                 
                 // TODO: Add Link header with next/last/first
 
-                $response->headers['X-Total-Count'] = $answer->totalCount;
+                $response->headers['X-Total-Count'] = $answer->totalCount();
 
                 if ($method == 'HEAD') {
                     $response->emptyBody = true;

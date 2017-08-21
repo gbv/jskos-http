@@ -13,7 +13,7 @@
     ],
     "require": {
         "php": ">=7.0",
-        "gbv/jskos": "~0.2",
+        "gbv/jskos": "~0.3",
         "symfony/cache": ">=3.3.6",
         "symfony/yaml": ">=2.8.0",
         "php-http/client-implementation": "^1.0",
@@ -25,7 +25,9 @@
     "require-dev": {
         "phpunit/phpunit": "~6.1",
         "php-http/guzzle6-adapter": ">=1.1.1",
-        "php-http/mock-client": "^1.0"
+        "php-http/mock-client": "^1.0",
+        "phploc/phploc": "^4.0",
+        "theseer/phpdox": "^0.10.1"
     },
     "autoload": {
         "psr-4": {
@@ -35,6 +37,10 @@
     "scripts": {
         "test": [
             "vendor/bin/phpunit tests --coverage-clover build/logs/clover.xml"
+        ],
+        "doc": [
+            "vendor/bin/phploc -q --log-xml=build/logs/phploc.xml --count-tests src tests",
+            "vendor/bin/phpdox"
         ]
     }
 }

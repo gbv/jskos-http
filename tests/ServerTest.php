@@ -45,7 +45,7 @@ class ServerTest extends \PHPUnit\Framework\TestCase
     private $response;
     private $logger;
 
-    private function newServer($service=null)
+    private function newServer(Service $service)
     {
         $this->server = new Server($service);
     }
@@ -77,7 +77,6 @@ class ServerTest extends \PHPUnit\Framework\TestCase
     private function assertResponse($status, $headers=[], $body=[])
     {        
         $this->assertEquals($status, $this->response->status);
-
         $this->assertArraySubset($headers, $this->response->headers);
 
         if (is_array($body)) {
@@ -91,7 +90,7 @@ class ServerTest extends \PHPUnit\Framework\TestCase
 
     public function testSomeRequest()
     {
-        $this->newServer();
+        $this->newServer(new FunctionService());
         $this->getRequest();
 
         $headers = [
@@ -110,7 +109,7 @@ class ServerTest extends \PHPUnit\Framework\TestCase
     {
         $logger = new MockLogger();
 
-        $this->newServer();
+        $this->newServer(new FunctionService());
         $this->server->setLogger($logger);
         $this->assertSame($logger, $this->server->getLogger());
 
@@ -125,24 +124,14 @@ class ServerTest extends \PHPUnit\Framework\TestCase
      */
     public function testDefaultLogger()
     {
-        $service = new Service(function($query) { throw new \Exception("!"); });
+        $service = new FunctionService(function($query) { throw new \Exception("!"); });
         $this->newServer($service);
         $this->getRequest();
     }
 
-    public function testService()
-    {
-        $this->newServer();
-        $this->assertInstanceOf('\JSKOS\Service', $this->server->getService());
-
-        $service = new Service();
-        $this->server->setService($service);
-        $this->assertSame( $service, $this->server->getService() );
-    }
-
     public function testServiceException()
     {
-        $service = new Service(function($query) { throw new \Exception("!"); });
+        $service = new FunctionService(function($query) { throw new \Exception("!"); });
         $this->newServer($service);
         $this->newLogger();
 
@@ -157,7 +146,7 @@ class ServerTest extends \PHPUnit\Framework\TestCase
 
     public function testServiceWrongResponse()
     {
-        $service = new Service(function($query) { return 42; });
+        $service = new FunctionService(function($query) { return 42; });
         $this->newServer($service);
         $this->newLogger();
         $this->getRequest();

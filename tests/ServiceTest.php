@@ -2,19 +2,23 @@
 
 namespace JSKOS;
 
-class MyService extends \JSKOS\Service 
+class MyService extends Service 
 {
     protected $supportedParameters = ['notation'];
-    public function query(array $request, string $method='') 
+    public function query(array $request, string $path='') 
     {
         return new Concept(["notation"=>$request["notation"]]);
     }  
 }
 
-class MyOtherService extends \JSKOS\Service 
+class MyOtherService extends Service 
 {
     protected $supportedParameters = [];
     protected $supportedTypes = ['http://www.w3.org/2004/02/skos/core#Concept'];
+    public function query(array $query, string $path='')
+    {
+        return new Page();
+    }
 }
 
 /**
@@ -28,25 +32,13 @@ class ServiceTest extends \PHPUnit\Framework\TestCase
         $method = function ($q) use ($page) {
             return $page;
         };
-        $service = new Service($method);
+        $service = new FunctionService($method);
         $this->assertSame($page, $service->query([]));
-    }
-
-    public function testDefaultQueryFunction()
-    {
-        $service = new Service();
-        $this->assertInstanceOf('\JSKOS\Page', $service->query([]));
-    }
-
-    public function testInvalidQueryFunction()
-    {
-        $this->expectException('InvalidArgumentException');
-        $service = new Service(42);
     }
 
     public function testSupportParameter()
     {
-        $service = new Service();
+        $service = new FunctionService();
         $this->assertEquals('{?uri}', $service->uriTemplate());
 
         $service->supportParameter('notation');
@@ -58,7 +50,7 @@ class ServiceTest extends \PHPUnit\Framework\TestCase
     public function testInvalidSupportParameter()
     {
         $this->expectException('DomainException');
-        $service = new Service();
+        $service = new FunctionService();
         $service->supportParameter('callback');
     }
 
