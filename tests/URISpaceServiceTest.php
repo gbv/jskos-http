@@ -8,6 +8,11 @@ namespace JSKOS;
 class URISpaceServiceTest extends \PHPUnit\Framework\TestCase
 {
 
+    public function assertEmptyResult($result) 
+    {
+        $this->assertTrue($result->isEmpty());
+    }
+
     public function testService()
     {
         foreach (['/.*/',FALSE] as $notationPattern) {
@@ -17,22 +22,22 @@ class URISpaceServiceTest extends \PHPUnit\Framework\TestCase
             }
             $service = new URISpaceService($config);
            
-            $this->assertNull($service->query([]));
-            $this->assertNull($service->query(['uri' => '']));
-            $this->assertNull($service->query(['uri' => 'http://example.com']));
-            $this->assertNull($service->query(['uri' => 'http://example.org']));
+            $this->assertEmptyResult($service->query([]));
+            $this->assertEmptyResult($service->query(['uri' => '']));
+            $this->assertEmptyResult($service->query(['uri' => 'http://example.com']));
+            $this->assertEmptyResult($service->query(['uri' => 'http://example.org']));
 
-            $concept = $service->query(['uri' => 'http://example.org/']);
-            $this->assertInstanceOf('JSKOS\Concept', $concept);
-            $this->assertSame('http://example.org/', $concept->uri);
-            $this->assertNull($concept->notation);
+            $result = $service->query(['uri' => 'http://example.org/']);
+            $this->assertInstanceOf(Concept::class, $result[0]);
+            $this->assertSame('http://example.org/', $result[0]->uri);
+            $this->assertNull($result[0]->notation);
      
-            $concept = $service->query(['uri' => 'http://example.org/foo']);
-            $this->assertInstanceOf('JSKOS\Concept', $concept);
-            $this->assertSame('http://example.org/foo', $concept->uri);
-            $this->assertEquals(new Listing(['foo']), $concept->notation);
+            $result = $service->query(['uri' => 'http://example.org/foo']);
+            $this->assertInstanceOf(Concept::class, $result[0]);
+            $this->assertSame('http://example.org/foo', $result[0]->uri);
+            $this->assertEquals(new Listing(['foo']), $result[0]->notation);
 
-            $this->assertNull($service->query([
+            $this->assertEmptyResult($service->query([
                 'uri'      => 'http://example.org/foo', 
                 'notation' => 'bar'
             ]));
@@ -47,13 +52,13 @@ class URISpaceServiceTest extends \PHPUnit\Framework\TestCase
             ]
         ]);
 
-        $this->assertNull($service->query(['uri' => 'http://example.org/']));
-        $this->assertNull($service->query(['uri' => 'http://example.org/foo']));
+        $this->assertEmptyResult($service->query(['uri' => 'http://example.org/']));
+        $this->assertEmptyResult($service->query(['uri' => 'http://example.org/foo']));
 
-        $concept = $service->query(['uri' => 'http://example.org/123']);
-        $this->assertInstanceOf('JSKOS\Concept', $concept);
-        $this->assertSame('http://example.org/123', $concept->uri);
-        $this->assertEquals(new Listing(['123']), $concept->notation);
+        $result = $service->query(['uri' => 'http://example.org/123']);
+        $this->assertInstanceOf(Concept::class, $result[0]);
+        $this->assertSame('http://example.org/123', $result[0]->uri);
+        $this->assertEquals(new Listing(['123']), $result[0]->notation);
 
         // ignore empty notation
         $this->assertNotNull($service->query([
@@ -62,17 +67,17 @@ class URISpaceServiceTest extends \PHPUnit\Framework\TestCase
         ]));
 
         // URI and notation don't match
-        $this->assertNull($service->query([
+        $this->assertEmptyResult($service->query([
             'uri' => 'http://example.org/123', 
             'notation' => 'foo'
         ]));
 
-        $this->assertNull($service->query(['notation' => 'foo']));
+        $this->assertEmptyResult($service->query(['notation' => 'foo']));
 
-        $concept = $service->query(['notation' => '123']);
-        $this->assertInstanceOf('JSKOS\Concept', $concept);
-        $this->assertSame('http://example.org/123', $concept->uri);
-        $this->assertEquals(new Listing(['123']), $concept->notation);
+        $result = $service->query(['notation' => '123']);
+        $this->assertInstanceOf(Concept::class, $result[0]);
+        $this->assertSame('http://example.org/123', $result[0]->uri);
+        $this->assertEquals(new Listing(['123']), $result[0]->notation);
     }
 
     public function testNotationNormalizer() {
@@ -83,13 +88,13 @@ class URISpaceServiceTest extends \PHPUnit\Framework\TestCase
                 'notationNormalizer' => 'strtoupper',
             ]
         ]);
-        $concept = $service->query(['notation' => 'q42']);
-        $this->assertSame('http://example.org/Q42', $concept->uri);
-        $this->assertEquals(new Listing(['Q42']), $concept->notation);
+        $result = $service->query(['notation' => 'q42']);
+        $this->assertSame('http://example.org/Q42', $result[0]->uri);
+        $this->assertEquals(new Listing(['Q42']), $result[0]->notation);
 
-        $concept = $service->query(['uri' => 'http://example.org/q42']);
-        $this->assertSame('http://example.org/q42', $concept->uri);
-        $this->assertEquals(new Listing(['Q42']), $concept->notation);
+        $result = $service->query(['uri' => 'http://example.org/q42']);
+        $this->assertSame('http://example.org/q42', $result[0]->uri);
+        $this->assertEquals(new Listing(['Q42']), $result[0]->notation);
      }
 
     # TODO: test multiple types but Concept

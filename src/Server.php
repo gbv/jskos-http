@@ -1,128 +1,137 @@
-<?php declare(strict_types=1);
+<?php declare(strict_types = 1);
 
 namespace JSKOS;
 
-use JSKOS\Service;
-
-/**
- * Logs errors or worse events via trigger_error.
- */
-class DefaultErrorLogger extends \Psr\Log\AbstractLogger
-{
-    public function log($level, $message, array $context = [])
-    {
-        if ($level=='error' or $level=='critical' or $level=='alert' or $level=='emergency') {
-            if (isset($context['exception'])) {
-                $message .= "\n".$context['exception'];
-            }
-            trigger_error($message, E_USER_ERROR);
-        }
-    }
-}
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Http\Message\ResponseFactory;
+use Http\Discovery\MessageFactoryDiscovery;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * A JSKOS Server.
- *
- * Serves a Service via HTTP.
- *
- * Example:
- * @code
- * $service = new Service();
- * $server = new Server($service);
- * $server->run();
- * @endcode
  */
 class Server implements \Psr\Log\LoggerAwareInterface
 {
-    /**
-     * @var string $API_VERSION JSKOS-API Version of this implementation
-     */
-    public static $API_VERSION = '0.0.0';
-
-    /**
-     * @var Service $service
-     */
     protected $service;
-
-    /**
-     * PRS-3 compliant LoggerInterface for logging.
-     * @var LoggerInterface $logger
-     */
+    protected $responseFactory;
     protected $logger;
 
-    /**
-     * Create a new Server.
-     * @param Service $service
-     */
-    public function __construct(Service $service)
-    {
-        $this->setService($service);
-        $this->logger = new DefaultErrorLogger();
-    }
-
-    /**
-     * Sets the current Service to service.
-     * @param Service $service
-     */
-    public function setService(Service $service)
+    public function __construct(
+        Service $service, 
+        ResponseFactory $responseFactory=null,
+        LoggerInterface $logger=null 
+    )
     {
         $this->service = $service;
+        $this->responseFactory = $responseFactory ?: MessageFactoryDiscovery::find();
+        $this->logger = $logger ?: new NullLogger();
     }
 
-    /**
-     * Sets a logger for the server.
-     *
-     * The default logger logs errors via trigger_error.
-     *
-     * @param LoggerInterface $logger
-     * @return null
-     */
-    public function setLogger(\Psr\Log\LoggerInterface $logger)
+    public function setLogger(LoggerInterface $logger)
     {
         $this->logger = $logger;
     }
 
-    /**
-     * Returns the current logger.
-     *
-     * @return LoggerInterface
-     */
-    public function getLogger()
+    protected function parseRequest(RequestInterface $request): array
     {
-        return $this->logger;
+        $uri = $request->getUri();
+        $path = $uri->getPath();
+        $query = [];
+        parse_str($uri->getQuery(), $query);
+
+        $callback = null;
+        if (isset($query['callback'])) {
+            if (preg_match('/^[$A-Z_][0-9A-Z_$.]*$/i', $query['callback'])) {
+                $callback = $query['callback'];
+            }
+            unset($query['callback']);
+        }
+
+        # TODO: get language parameter from headers
+
+        return [$query, $path, $callback];
+    }
+
+    public function query(RequestInterface $request): ResponseInterface
+    {    
+        $method = $request->getMethod();
+
+        $result = null;
+        $callback = null;
+
+        if ($method == 'GET' || $method == 'HEAD') {
+            list ($query, $path, $callback) = $this->parseRequest($request);
+
+            # TODO: detect conflicting parameters?
+            # if (isset($params['uri']) and isset($params['search'])) {
+            #   $error = new Error(422, 'request_error', 'Conflicting request parameters uri & search');
+            # }
+
+            try {
+                $result = $this->service->query($query, $path);
+            } catch(Error $error) {
+                $result = $error;
+            }
+            # TODO: catch other kinds of errors:
+            # } catch (\Exception $e) {
+            # $this->logger->error('Service Exception', ['exception' => $e]);
+            # $error = new Error(500, 'Internal server error');
+        } elseif ($request->getMethod() == 'OPTIONS') {            
+            return $this->optionsResponse();
+        } else {
+            $result = new Error(405, 'Method not allowed');
+        }
+
+
+        if ($result instanceof Result) {
+            $code = 200;
+            $headers = [
+                'Access-Control-Allow-Origin' => '*',
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'X-Total-Count' => $result->getTotalCount()
+            ];
+        } else {
+            $code = $result->code;
+            $headers = [
+                'Access-Control-Allow-Origin' => '*',
+                'Content-Type' => 'application/json; charset=UTF-8',
+            ];
+        }
+
+        $body = $result->json();
+        $headers['Content-Length'] = strlen($body);
+        if ($method == 'HEAD') {
+            $body = '';
+        }
+
+        if ($callback) {
+            $body = "/**/$callback($body);";
+            $headers['Content-Type'] = 'application/javascript; charset=UTF-8';
+        }
+
+        return $this->responseFactory->createResponse($code, null, $headers, $body);
+    }
+
+
+    public function optionsResponse()
+    {
+        $headers = [
+            'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+        ];
+
+        # TODO:
+        # if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']) &&
+        #    $_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'] == 'GET') {
+        #    $response->headers['Access-Control-Allow-Origin'] = '*';
+        #    $response->headers['Acess-Control-Expose-Headers'] = 'Link, X-Total-Count';
+
+        return $this->responseFactory->createResponse(200, null, $headers, '');
     }
 
     /**
-     * Receive request and send Response.
-     */
-    public function run()
-    {
-        $this->response()->send();
-    }
-
-    /**
-     * Directly run a new server with a given Service.
-     *
-     * @code
-     * Server::runService($service);
-     * @endcode
-     *
-     * is equivalent to
-     *
-     * @code
-     * $server = new Server($service);
-     * $server->run();
-     * @endcode
-     */
-    public static function runService(Service $service)
-    {
-        $server = new Server($service);
-        $server->run();
-    }
-
-    /**
-     * Extract requested languages(s) from request.
-     */
+     * TODO: Extract requested languages(s) from request.
     public function extractRequestLanguage($params)
     {
         $language = null;
@@ -154,177 +163,26 @@ class Server implements \Psr\Log\LoggerAwareInterface
         
         return $language;
     }
+*/
 
-    /**
-     * Receive request and create a Response.
-     *
-     * This is the core method implementing basic parts of JSKOS API.
-     * The method handles HTTP request method, request headers and
-     * [query modifiers](https://gbv.github.io/jskos-api/#query-modifiers),
-     * passes valid GET and HEAD requests to the served Service and wraps
-     * the result as Response.
-     *
-     * @return Response
-     */
-    public function response()
+	/**
+	 * Utility function to emit a Response without additional framework.
+	 */
+    public static function sendResponse(ResponseInterface $response) 
     {
-        $method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
-        $params = $_GET;
+		$code = $response->getStatusCode();
+		$reason = $response->getReasonPhrase();
+		header(
+			sprintf('HTTP/%s %s %s', $response->getProtocolVersion(), $code, $reason),
+			true, $code 
+		);
 
-        if ($method == 'OPTIONS') {
-            $this->logger->info("Received OPTIONS request");
-            return $this->optionsResponse();
-        }
+		foreach ($response->getHeaders() as $header => $values) {
+			foreach ($values as $value) {
+				header("$header: $value", false);
+			}
+		}
 
-        # get query modifier: callback
-        if (isset($params['callback'])) {
-            $callback = $params['callback'];
-            if (!preg_match('/^[$A-Z_][0-9A-Z_$.]*$/i', $callback)) {
-                unset($callback);
-            }
-            unset($params['callback']);
-        }
-
-        $language = $this->extractRequestLanguage($params);
-
-        # TODO: extract more query modifiers
-
-        # TODO: header: Allow/Authentication
-
-        $error = null;
-
-        # conflicting parameters
-        if (isset($params['uri']) and isset($params['search'])) {
-            $error = new Error('422', 'request_error', 'Conflicting request parameters uri & search');
-        }
-
-        if (!$error and ($method == 'GET' or $method == 'HEAD')) {
-            $this->logger->info("Received $method request", $params);
-
-            $answer = $this->queryService($params);
-
-            if ($answer instanceof Page) {
-
-                // TODO: if unique
-
-                $response = $this->basicResponse(200, $answer);
-                
-                // TODO: Add Link header with next/last/first
-
-                $response->headers['X-Total-Count'] = $answer->totalCount();
-
-                if ($method == 'HEAD') {
-                    $response->emptyBody = true;
-                }
-            } elseif ($answer instanceof Error) {
-                $error = $answer;
-            }
-        } elseif (!$error) {
-            $error = new Error(405, '???', 'Method not allowed');
-        }
-
-        if (isset($error)) {
-            $this->logger->warning($error->message, ['error' => $error]);
-            $response = $this->basicResponse($error->code, $error);
-        }
-
-        if (isset($callback)) {
-            $response->callback = $callback;
-        }
-
-        return $response;
-    }
-
-    /**
-     * Delegate request to service.
-     *
-     * Makes sure that exceptions are catched.
-     *
-     * @return Page|Error
-     */
-    protected function queryService($params)
-    {
-        $supportedTypes      = $this->service->getSupportedTypes();
-        $supportedParameters = $this->service->getSupportedParameters();
-        $possibleParameters  = array_merge($supportedParameters, \JSKOS\QueryModifiers);
-
-        # filter out queries for unsupported types
-        if (count($supportedTypes) and isset($params['type'])) {
-            if (!in_array($params['type'], $supportedTypes)) {
-                return new Page([]);
-            }
-        }
-
-        # remove unknown parameters
-        foreach (array_keys($params) as $name) {
-            if (!in_array($name, $possibleParameters)) {
-                $this->logger->notice('Unsupported query parameter {name}', [
-                    'name' => $name, 'value' => $params[$name] ]);
-                unset($params[$name]);
-            }
-        }
-
-        # make sure all supported query parameters exist
-        foreach ($supportedParameters as $name) {
-            if (!isset($params[$name])) {
-                $params[$name] = null;
-            }
-        }
-
-        try {
-            $response = $this->service->query($params);
-        } catch (\Exception $e) {
-            $this->logger->error('Service Exception', ['exception' => $e]);
-            return new Error(500, '???', 'Internal server error');
-        }
-
-        if (is_null($response)) {
-            return new Page([]);
-        } elseif ($response instanceof Item) {
-            return new Page([$response]);
-        } elseif ($response instanceof Page or $response instanceof Error) {
-            return $response;
-        } else {
-            $this->logger->error('Service response has wrong type', ['response' => $response]);
-            return new Error(500, '???', 'Internal server error');
-        }
-
-        return $response;
-    }
-
-    /**
-     * Create a Response object with standard JSKOS-API headers.
-     * @param integer $code HTTP Status code
-     * @return Response
-     */
-    protected function basicResponse($code=200, $content=null)
-    {
-        return new Response(
-            $code,
-            [
-                'Access-Control-Allow-Origin' => '*',
-                'X-JSKOS-API-Version' => self::$API_VERSION,
-                'Link-Template' => '<'.$this->service->uriTemplate().'>; rel="search"',
-            ],
-            $content
-        );
-    }
-
-    /**
-     * Respond to a HTTP OPTIONS request.
-     * @return Response
-     */
-    protected function optionsResponse()
-    {
-        $response = $this->basicResponse();
-
-        $response->headers['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS';
-        if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']) &&
-            $_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'] == 'GET') {
-            $response->headers['Access-Control-Allow-Origin'] = '*';
-            $response->headers['Acess-Control-Expose-Headers'] = 'Link, X-Total-Count';
-        }
-
-        return $response;
-    }
+		echo $response->getBody();
+	}
 }

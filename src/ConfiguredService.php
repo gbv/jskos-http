@@ -1,40 +1,33 @@
-<?php declare(strict_types=1);
+<?php declare(strict_types = 1);
 
 namespace JSKOS;
 
-use Symfony\Component\Yaml\Yaml;
-
 /**
- * This subclass of JSKOS\Service automatically loads service configuration
- * from a YAML file to configure an URISpaceService among other settings.
- *
- * Subclasses MUST override static class property `$CONFIG_DIR`.
- *
- * Configuration is available in member `$config`.
+ * This subclass of JSKOS\Service contains service configuration to
+ * to configure an URISpaceService among other settings.
  */
 abstract class ConfiguredService extends Service
 {
-
-    // subclass MUST override this, e.g. with __DIR__:
-    public static $CONFIG_DIR = ".";
-
     protected $config = [];
+
     private $uriSpaceService;
 
-    public function __construct()
+    public function __construct(array $config=[])
     {
-        parent::__construct();
-        $class = join('', array_slice(explode('\\', get_class($this)), -1));
-        $file = static::$CONFIG_DIR."/$class.yaml";
-        $this->config = Yaml::parse(file_get_contents($file));
-
-        if (isset($this->config['_uriSpace'])) {
-            $this->uriSpaceService = new URISpaceService($this->config['_uriSpace']);
-        }
+        $this->configure($config);
     }
 
-    public function queryURISpace($query)
+    public function configure(array $config)
     {
-        return $this->uriSpaceService ? $this->uriSpaceService->query($query) : null;
+        $this->config = $config;
+        $this->uriSpaceService = isset($config['_uriSpace'])
+            ? new URISpaceService($config['_uriSpace']) : null;
+    }
+
+    public function queryURISpace(array $query=[], string $path=''): Result
+    {
+        return $this->uriSpaceService 
+            ? $this->uriSpaceService->query($query, $path) 
+            : new Result();
     }
 }

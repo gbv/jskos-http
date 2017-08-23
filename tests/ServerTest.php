@@ -1,198 +1,65 @@
-<?php declare(strict_types=1);
+<?php declare(strict_types = 1);
 
 namespace JSKOS;
 
-class MockLogger extends \Psr\Log\AbstractLogger {
-    public $log = [];
-    public function log($level, $message, array $context = []) 
-    {
-        $this->log[]=[$level, $message, $context];
-    }
-}
-
-class MyConceptService extends \JSKOS\Service 
-{
-    protected $supportedTypes = ['http://www.w3.org/2004/02/skos/core#Concept'];
-    public function query(array $request, string $method='') 
-    {
-        if ($request['uri']) {
-            return new Concept(['uri'=>$request['uri']]);
-        } else {
-            return;
-        }
-    }
-}
-
-class MySearchService extends MyConceptService
-{
-    protected $supportedParameters = ['search'];
-    public function query(array $request, string $method='') 
-    {
-        if ($request['search']) {
-            $a = new Concept(['uri'=>'x:a']);
-            $b = new Concept(['uri'=>'x:b']);
-            return new Page([$a,$b],0,1,42);
-        }
-    } 
- }
+use Http\Discovery\MessageFactoryDiscovery;
 
 /**
  * @covers JSKOS\Server
  */
 class ServerTest extends \PHPUnit\Framework\TestCase
 {
-    private $server;
-    private $response;
-    private $logger;
+    protected $messageFactory;
+    protected $uriFactory;
 
-    private function newServer(Service $service)
+    public function setUp()
     {
-        $this->server = new Server($service);
+        $this->messageFactory = MessageFactoryDiscovery::find();
     }
 
-    private function newLogger()
+    protected function get(array $params=[], string $path='/', array $headers=[])
     {
-        $this->logger = new MockLogger();
-        $this->server->setLogger($this->logger);
+        $uri = "http://example.org$path?".http_build_query($params);
+        return $this->messageFactory->createRequest('GET', $uri, $headers);
     }
-
-    private function condenseLog()
+    
+    public function testResponse()
     {
-        return array_map(function ($m) { 
-            return "$m[0]: $m[1]"; 
-        }, $this->logger->log);
-    }
+        $server = new Server(new CallableService());
+        $response = $server->query($this->get());
 
-    private function getRequest($headers=[], $params=[])
-    {
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-        foreach ($headers as $name => $value) {
-            $_SERVER['HTTP_'.$name] = $value;
-        }
-        $_GET = $params;
-
-        $this->response = $this->server->response();
-    }
-
-    private function assertResponse($status, $headers=[], $body=[])
-    {        
-        $this->assertEquals($status, $this->response->status);
-        $this->assertArraySubset($headers, $this->response->headers);
-
-        if (is_array($body)) {
-            $json = json_decode($this->response->getBody(),true);
-            $this->assertArraySubset( $body, $json );
-        } else {
-            $this->assertEquals($body, $this->response->getBody());
-        }
-    }
-
-
-    public function testSomeRequest()
-    {
-        $this->newServer(new FunctionService());
-        $this->getRequest();
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertEquals('[]', $response->getBody());
 
         $headers = [
-            'X-JSKOS-API-Version' => '0.0.0',
-            'X-Total-Count' => 0,
-            'Link-Template' => '<{?uri}>; rel="search"',
-            # TODO: Link: rel="collection" to concept scheme or registry
+            'Access-Control-Allow-Origin' => '*',
+            'Content-Type' => 'application/json; charset=UTF-8',
+            'X-Total-Count' => '0'
         ];
-        $this->assertResponse(200, $headers, '[]');
-
-        $this->getRequest([],['callback' => 'abc']);
-        $this->assertResponse(200, $headers, '/**/abc([]);');
+        foreach ($headers as $header => $value) {
+            $this->assertEquals([$value], $response->getHeader($header));
+        }
     }
 
-    public function testLogging() 
+    public function testJSONP()
     {
-        $logger = new MockLogger();
+        $server = new Server(new CallableService());
+        $response = $server->query($this->get(['callback'=>'abc123']));
 
-        $this->newServer(new FunctionService());
-        $this->server->setLogger($logger);
-        $this->assertSame($logger, $this->server->getLogger());
-
-        $this->getRequest();
-        $this->assertEquals([
-            ["info","Received GET request",[]]
-        ],$logger->log);
+        $this->assertEquals('/**/abc123([]);', $response->getBody());
+        $this->assertEquals(
+            ['application/javascript; charset=UTF-8'], 
+            $response->getHeader('Content-Type'));
     }
 
-    /**
-     * @expectedException PHPUnit\Framework\Exception
-     */
-    public function testDefaultLogger()
+    public function atestServerResponse()
     {
-        $service = new FunctionService(function($query) { throw new \Exception("!"); });
-        $this->newServer($service);
-        $this->getRequest();
+        $service = new CallableService(
+            function ($query, $path) {
+                return new Result();
+            }
+        ); 
     }
 
-    public function testServiceException()
-    {
-        $service = new FunctionService(function($query) { throw new \Exception("!"); });
-        $this->newServer($service);
-        $this->newLogger();
 
-        $this->getRequest();
-        $this->assertEquals([
-                "info: Received GET request",
-                "error: Service Exception",
-                "warning: Internal server error"
-            ], $this->condenseLog()
-        );
-    }
-
-    public function testServiceWrongResponse()
-    {
-        $service = new FunctionService(function($query) { return 42; });
-        $this->newServer($service);
-        $this->newLogger();
-        $this->getRequest();
-        $this->assertEquals([
-            "info: Received GET request",
-            "error: Service response has wrong type",
-            "warning: Internal server error"
-            ], $this->condenseLog()
-        );
-        $this->assertSame(42, $this->logger->log[1][2]['response']);
-    }
-
-    public function testConceptService() 
-    {
-        $this->newServer(new MyConceptService());
-
-        $this->getRequest();
-        $this->assertEquals(0, $this->response->headers['X-Total-Count']);
-
-        $this->newLogger();
-        $this->getRequest([],['foo' => 'bar', 'uri' => 'http://example.org/', 'page' => 1]);
-        $this->assertEquals([
-            "info: Received GET request",
-            "notice: Unsupported query parameter {name}"
-            ], $this->condenseLog()
-        );
-        $this->assertEquals(1, $this->response->headers['X-Total-Count']);
-
-        $this->getRequest([],['uri' => 'http://example.org/', 'type' => 'x:unknown']);
-        $this->assertEquals(0, $this->response->headers['X-Total-Count']);
-
-        $this->getRequest([],['uri' => 'http://example.org/', 
-                              'type' => 'http://www.w3.org/2004/02/skos/core#Concept']);
-        $this->assertEquals(1, $this->response->headers['X-Total-Count']);
-    }
-
-    public function testSearchService()
-    {
-        $this->newServer(new MySearchService());
-
-        $this->getRequest([],['search'=>'foo']);
-        $this->assertEquals(42, $this->response->headers['X-Total-Count']);
-        $this->assertResponse( 200, [], [ ['uri'=>'x:a'], ['uri'=>'x:b'] ] );
-
-        // conflicting parameters
-        $this->getRequest([],['search'=>'foo','uri'=>'x:b']);        
-        $this->assertResponse( 422, [], [ 'code' => 422 ] );
-    }
 }

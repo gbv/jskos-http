@@ -4,14 +4,9 @@ namespace JSKOS;
 
 class SampleService extends ConfiguredService 
 {
-    public static $CONFIG_DIR = __DIR__;
-    public function getConfig() 
+    public function query(array $query=[], string $path=''): Result
     {
-        return $this->config;
-    }
-    public function query(array $query, string $path='')
-    {
-        return new Page();
+        return new Result();
     }
 }
 
@@ -20,18 +15,27 @@ class SampleService extends ConfiguredService
  */
 class ConfiguredServiceTest extends \PHPUnit\Framework\TestCase
 {
-
     public function testService()        
     {
+        $config = [
+            '_uriSpace' => [
+                'Concept' => [
+                    'uriSpace' => 'http://example.org/concept/',
+                    'notationPattern' => '/^[0-9]+$/'
+                ]
+            ],
+            'foo' => [ 'bar' => 'doz' ]
+        ];
+
         $service = new SampleService();
+		$result = $service->queryURISpace(['notation' => '123']);
+        $this->assertEquals(0, count($result));
 
-		$this->assertSame( $service->getConfig()["foo"], ['bar' => 'doz']);
-
-		$concept = $service->queryURISpace(['notation' => '123']);
-		$this->assertEquals( $concept, new Concept([ 
+        $service->configure($config);
+		$result = $service->queryURISpace(['notation' => '123']);
+		$this->assertEquals( new Concept([ 
 			'uri' => 'http://example.org/concept/123',
 			'notation' => ['123']
-		]));
+		]), $result[0] );
     }
 }
- 

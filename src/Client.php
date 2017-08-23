@@ -2,57 +2,63 @@
   
 namespace JSKOS;
   
-use Http\Client\Common\HttpMethodsClient;
+use Http\Client\HttpClient;
 use Http\Discovery\HttpClientDiscovery;
 use Http\Discovery\MessageFactoryDiscovery;
+use Http\Client\Exception as ClientException;
 
 /**
  * JSKOS API Client
  */
 class Client extends Service
 {
-	protected $baseURL;
+    protected $baseUrl;
 	protected $httpClient;
-	protected $methods;
+    protected $requestFactory;
 
-	public function __construct(string $url, array $methods=null, HttpMethodsClient $client=null) {
-		$this->baseURL = $url;
-		$this->methods = $methods ?? [
-			'top', 'broader', 'narrower', 'descendants', 'ancestors'
-		];
-		$this->httpClient = $client ?: new HttpMethodsClient(
-			HttpClientDiscovery::find(),
-			MessageFactoryDiscovery::find()
-		);		
+    public function __construct(
+        string $baseUrl,
+        HttpClient $client=null, 
+        RequestFactory $requestFactory=null
+    )
+    {
+		$this->baseUrl        = $baseUrl;
+		$this->requestFactory = $requestFactory ?: MessageFactoryDiscovery::find();
+		$this->httpClient     = $client ?: HttpClientDiscovery::find();
 	}
 
-	public function query(array $query, string $method='') {
-		$query = array_intersect_key(
-			$query,
-			array_flip(['uri','id','notation','type','limit','offset','properties'])
-		);
-
-		$url = $this->baseURL;
-        
-        if ($method) {
-            if (in_array($this->methods, $method)) {
-    			$url .= "/$method";
-            } else {
-                return new Page();
-            }
-        }
-
+	public function query(array $query=[], string $path=''): Result {
+		$url = $this->baseUrl . $path;
+                
 		if (count($query)) {
 			$url .= '?' . http_build_query($query);
 		}
 
-		$response = $this->httpClient->get($url);
+        $request = $this->requestFactory->createRequest('GET', $url, []);
+		$response = $this->httpClient->sendRequest($request);
 
-		# TOOD: catch error, broken JSON etc.
-		$json = $response->getBody()->getContents();
-        $data = json_decode($json, true);
+        if ($response->getStatusCode() != 200) {
+            throw new Error(502, 'Unsuccessful HTTP response');
+        }
+
+        $body = (string)$response->getBody();
+        if (!preg_match('/\s*\[/m', $body)) {
+            throw new Error(502, 'Failed to parse JSON array');
+        }
+
+        $data = json_decode($body, true);        
+        if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
+            throw new Error(502, 'Failed to parse JSON', json_last_error_msg());
+        }
+
+        foreach ($data as $n => $resource) {
+            $class = Resource::guessClassFromTypes($resource['type'] ?? []) 
+                ?? Concept::class;
+            # TODO: enable strict parsing?
+            $data[$n] = new $class($data[$n]);
+        }
 
 		# TODO: add total, offset, limit of page
-        return new Page($data ?? []);
+        return new Result($data ?? []);
 	}
 }

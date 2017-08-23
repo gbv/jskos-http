@@ -9,31 +9,42 @@ use JSKOS\PrettyJsonSerializable;
  *
  * @see https://gbv.github.io/jskos-api/jskos-api.html#error-responses
  */
-class Error extends PrettyJsonSerializable
+class Error extends \Error implements \JsonSerializable
 {
-    public $code;
-    public $error;
-    public $message;
-    public $description;
-    public $uri;
+    protected $error;
+    protected $description;
+    protected $uri;
 
     /**
      * Create a JSKOS API error.
      *
      * @param integer $code HTTP status code
-     * @param string  $error
      * @param string  $message
      * @param string  $description
      * @param string  $uri
-     *
-     * @todo check member constraints: code and error must be set properly
      */
-    public function __construct($code, $error, $message, $description=null, $uri=null)
+    public function __construct(int $code, string $message=null, string $description=null, string $uri=null)
     {
         $this->code        = $code;
-        $this->error       = $error;
         $this->message     = $message;
         $this->description = $description;
         $this->uri         = $uri;
+    }
+
+
+    /**
+     * Only include non-null fields in JSON.
+     */
+    public function jsonSerialize()
+    {
+        $json = [];
+
+        foreach (['code', 'message', 'description', 'uri'] as $field) {
+            if ($this->$field !== null) {
+                $json[$field] = $this->$field;
+            }
+        }
+
+        return $json;
     }
 }

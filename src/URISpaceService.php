@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php declare(strict_types = 1);
 
 namespace JSKOS;
 
@@ -52,11 +52,11 @@ class URISpaceService extends Service
         }
     }
 
-    public function query(array $query, string $method='')
+    public function query(array $query, string $path=''): Result
     {
         $class  = null;
 
-        if (isset($query['uri']) and $query['uri'] !== "") {
+        if (isset($query['uri']) && $query['uri'] !== "") {
             foreach ($this->config as $type => $config) {
                 // request URI matches uriSpace
                 if (strpos($query['uri'], $config['uriSpace']) === 0) {
@@ -64,14 +64,14 @@ class URISpaceService extends Service
                     $notation = substr($uri, strlen($config['uriSpace']));
 
                     if (!preg_match($config['notationPattern'], $notation)) {
-                        return;
+                        return new Result();
                     }
 
                     if ($config['notationNormalizer']) {
                         $notation = $config['notationNormalizer']($notation);
                     }
 
-                    if (!$notation and $notation !== '0') {
+                    if (!$notation && $notation !== '0') {
                         unset($notation);
                     }
 
@@ -81,15 +81,15 @@ class URISpaceService extends Service
                 }
             }
             if (!isset($uri)) {
-                return;
+                return new Result();
             }
         }
 
-        if (isset($query['notation']) and $query['notation'] !== "") {
+        if (isset($query['notation']) && $query['notation'] !== "") {
             if (isset($notation)) {
                 if ($query['notation'] != $notation) {
                     // requested notation and uri do not match
-                    return;
+                    return new Result();
                 }
             } else {
                 foreach ($this->config as $type => $config) {
@@ -108,17 +108,19 @@ class URISpaceService extends Service
                     }
                 }
                 if (!isset($notation)) {
-                    return;
+                    return new Result();
                 }
             }
         }
         
-        if ($class and isset($uri)) {
+        if ($class && isset($uri)) {
             if (isset($notation)) {
-                return new $class(['uri' => $uri, 'notation' => [$notation]]);
+                $content = new $class(['uri' => $uri, 'notation' => [$notation]]);
             } else {
-                return new $class(['uri' => $uri]);
+                $content = new $class(['uri' => $uri]);
             }
         }
+
+        return isset($content) ? new Result([$content]) : new Result();
     }
 }

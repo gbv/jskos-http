@@ -2,46 +2,12 @@
 
 namespace JSKOS;
 
-/**
- * Query modifiers as defined by JSKOS API.
- */
 const QueryModifiers = [
-    "properties",
-    "expand",
-    "page","limit","unique",
-    "callback",
+    "limit", "offset", "properties", "callback",
 ];
 
 /**
- * JSKOS API backend class.
- *
- * A Service can be queried with a set of query parameters to return a Page
- * or Error. To actually implement JSKOS API, create a Server that passes HTTP
- * requests to the Service. A Service must implement the query method and possibly 
- * the supportedParameters member variable:
- *
- * @code
- * class MyService extends \JSKOS\Service {
- *
- *     protected $supportedParameters = [...];
- *
- *     public function query($request) {
- *         ...
- *     }
- *
- * }
- * @endcode
- *
- * Each %Service can be configured to support specific query parameters, in
- * addition to the mandatory parameter `uri`. The list of supported parameters
- * can be returned as URI Template.
- *
- * @code
- * $service->supportParameter('notation');
- * $service->uriTemplate(); # '{?uri}{?notation}'
- * @endcode
- *
- * @see Server
+ * JSKOS API backend.
  */
 abstract class Service
 {
@@ -52,34 +18,12 @@ abstract class Service
     protected $supportedParameters = [];
 
     /**
-     * List of available types, given by their URIs.
-     *
-     * If left empty then all types are possible. The query parameter 'type' is
-     * added to the list of supported query parameter otherwise, so requests can
-     * be checked before perfoming a query and results can be checked for expected
-     * types.
-     *
-     * @var array
-     */
-    protected $supportedTypes = [];
-
-    /**
-     * Create a new service.
-     */
-    public function __construct()
-    {
-        $this->supportParameter('uri');
-        if (count($this->supportedTypes) and !in_array('type', $this->supportedParameters)) {
-            $this->supportParameter('type');
-        }
-    }
-
-    /**
      * Perform a query.
      *
-     * @return Page|Error
+     * @return Result
+     * @throws Error
      */
-    abstract public function query(array $request, string $method='');
+    abstract public function query(array $request, string $path=''): Result;
 
     /**
      * Enable support of a query parameter.
@@ -101,15 +45,6 @@ abstract class Service
     public function getSupportedParameters()
     {
         return $this->supportedParameters;
-    }
-
-    /**
-     * Get a list of supported type URIs.
-     * @return array
-     */
-    public function getSupportedTypes()
-    {
-        return $this->supportedTypes;
     }
 
     /**
