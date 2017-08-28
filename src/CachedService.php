@@ -9,8 +9,8 @@ use Psr\SimpleCache\CacheInterface;
  */
 class CachedService extends Service
 {
-    private $service;
-    private $cache;
+    protected $service;
+    protected $cache;
 
     public function __construct(Service $service, CacheInterface $cache)
     {

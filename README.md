@@ -1,6 +1,6 @@
 # jskos-http - JSKOS API implementation
 
-[![Latest Version](https://img.shields.io/packagist/v/gbv/jskos-http.svg?style=flat-square)](https://packagist.org/packages/gbv/jskos)
+[![Latest Version](https://img.shields.io/packagist/v/gbv/jskos-http.svg?style=flat-square)](https://packagist.org/packages/gbv/jskos-http)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/travis/gbv/jskos-http.svg?style=flat-square)](https://travis-ci.org/gbv/jskos-http)
 [![Coverage Status](https://img.shields.io/coveralls/gbv/jskos-http/master.svg?style=flat-square)](https://coveralls.io/r/gbv/jskos-http)
@@ -39,7 +39,7 @@ Jakob Voß <jakob.voss@gbv.de>
 
 JSKOS-HTTP is licensed under the LGPL license - see `LICENSE.md` for details.
 
-# See alse
+# See also
 
 JSKOS is created as part of project coli-conc: <https://coli-conc.gbv.de/>.
 
