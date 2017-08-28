@@ -7,7 +7,8 @@ class MyService extends Service
     protected $supportedParameters = ['notation'];
     public function query(array $request, string $path=''): Result 
     {
-        return new Result([new Concept(["notation"=>$request["notation"]])]);
+        $notation = $request['notation'];
+        return new Result([new Concept(["notation"=>[$notation]])]);
     }  
 }
 
@@ -69,6 +70,6 @@ class ServiceTest extends \PHPUnit\Framework\TestCase
         $service = new MyService();
         #$this->assertEquals('{?notation}{?uri}', $service->uriTemplate());
         $result = $service->query(['notation'=>'abc']);
-        $this->assertEquals(new Concept(['notation'=>'abc']), $result[0]);
+        $this->assertEquals(new Concept(['notation'=>['abc']]), $result[0]);
     }
 }
