@@ -33,4 +33,14 @@ class Result extends Set
         parent::append($resource);
         $this->totalCount = max($this->totalCount, count($this));
     }
+
+    /**
+     * Serialize with type and context fields for each member.
+     */
+    public function jsonLDSerialize(string $context = self::DEFAULT_CONTEXT, bool $types = true)
+    {
+        return array_map(function($m) use ($context, $types) {
+            return $m->jsonLDSerialize($context, $types); 
+        }, $this->members);
+    }
 }

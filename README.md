@@ -25,13 +25,51 @@ composer require php-http/curl-client gbv/jskos-http
 ~~~
 
 This will automatically create `composer.json` for your project (unless it already exists) and add jskos-http as dependency. Composer also generates `vendor/autoload.php` to get autoloading of all dependencies: 
+
 # Usage and examples
 
-The [jskos-php-examples repository](https://github.com/gbv/jskos-php-examples)
-contains several examples, including wrappers of existing terminology services
-(Wikidata, GND...) to JSKOS-API.
+See directory `examples` for example scripts and [jskos-php-examples](https://github.com/gbv/jskos-php-examples) for an example application.
 
-The examples can be tried online at <https://jskos-php-examples.herokuapp.com>.
+## Client
+
+See class `Client` to query JSKOS API and get back `Result` objects.
+
+~~~php
+use JSKOS\Client;
+
+$client = new Client('http://example.org/');
+$result = $client->query(['uri'=>$uri]);
+
+if (count($result)) {
+  ...
+}
+~~~
+
+## Server
+
+Class `Server` wraps a JSKOS `Service` with [PSR-7 HTTP message interfaces](http://www.php-fig.org/psr/psr-7/) so it can be used with your favorite PSR-7 framework. An example with [Slim](https://packagist.org/packages/slim/slim):
+
+~~~php
+$server = new JSKOS\Server($service);
+
+$app = new Slim\App();
+
+$app->get('/api', function ($request) use ($server) {
+    return $server->query($request);
+});
+
+$app->run();
+~~~
+
+But there is no need to use an additional framework to support simple HTTP GET requests:
+
+~~~
+use JSKOS;
+
+$server = new Server($service);
+$response = $server->queryService($_GET, $_SERVER['PATH_INFO'] ?? '');
+Server::sendResponse($response);
+~~~
 
 # Author and License
 

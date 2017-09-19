@@ -34,74 +34,63 @@ class Server implements \Psr\Log\LoggerAwareInterface
         $this->logger = $logger;
     }
 
-    protected function parseRequest(RequestInterface $request): array
+    public function queryService(array $query, string $path=''): ResponseInterface 
     {
-        $uri = $request->getUri();
-        $path = $uri->getPath();
-        $query = [];
-        parse_str($uri->getQuery(), $query);
-
-        $callback = null;
-        if (isset($query['callback'])) {
-            if (preg_match('/^[$A-Z_][0-9A-Z_$.]*$/i', $query['callback'])) {
-                $callback = $query['callback'];
-            }
+        if (preg_match('/^[$A-Z_][0-9A-Z_$.]*$/i', $query['callback'] ?? '')) {
+            $callback = $query['callback'];
             unset($query['callback']);
         }
 
-        # TODO: get language parameter from headers
+        # TODO: detect conflicting parameters?
+        # if (isset($params['uri']) and isset($params['search'])) {
+        #   $error = new Error(422, 'request_error', 'Conflicting request parameters uri & search');
+        # }
 
-        return [$query, $path, $callback];
+        try {
+            $result = $this->service->query($query, $path);
+            // TODO
+        } catch(Error $error) {
+            $result = $error;
+        }
+
+        # TODO: catch other kinds of errors:
+        # } catch (\Exception $e) {
+        # $this->logger->error('Service Exception', ['exception' => $e]);
+        # $error = new Error(500, 'Internal server error');
+
+        return $this->buildResponse($result, 'GET', $callback ?? null);
     }
 
     public function query(RequestInterface $request): ResponseInterface
     {    
         $method = $request->getMethod();
 
-        $result = null;
-        $callback = null;
-
-        if ($method == 'GET' || $method == 'HEAD') {
-            list ($query, $path, $callback) = $this->parseRequest($request);
-
-            # TODO: detect conflicting parameters?
-            # if (isset($params['uri']) and isset($params['search'])) {
-            #   $error = new Error(422, 'request_error', 'Conflicting request parameters uri & search');
-            # }
-
-            try {
-                $result = $this->service->query($query, $path);
-            } catch(Error $error) {
-                $result = $error;
-            }
-            # TODO: catch other kinds of errors:
-            # } catch (\Exception $e) {
-            # $this->logger->error('Service Exception', ['exception' => $e]);
-            # $error = new Error(500, 'Internal server error');
-        } elseif ($request->getMethod() == 'OPTIONS') {            
+        if ($method == 'OPTIONS') {            
             return $this->optionsResponse();
-        } else {
-            $result = new Error(405, 'Method not allowed');
+        } elseif ($method != 'GET' && $method != 'HEAD') {
+            return $this->buildResponse(new Error(405, 'Method not allowed'));
         }
 
+        $uri = $request->getUri();
+        $path = $uri->getPath();        
+        $query = [];
+        parse_str($uri->getQuery(), $query);
 
-        if ($result instanceof Result) {
-            $code = 200;
-            $headers = [
-                'Access-Control-Allow-Origin' => '*',
-                'Content-Type' => 'application/json; charset=UTF-8',
-                'X-Total-Count' => $result->getTotalCount()
-            ];
-        } else {
-            $code = $result->code;
-            $headers = [
-                'Access-Control-Allow-Origin' => '*',
-                'Content-Type' => 'application/json; charset=UTF-8',
-            ];
-        }
+        # TODO: get language parameter from headers
 
+        return $this->queryService($query, $path);
+    }
+
+    protected function buildResponse($result, $method='GET', $callback=null): ResponseInterface
+    {
         $body = $result->json();
-        $headers['Content-Length'] = strlen($body);
+
+        $headers = [
+            'Access-Control-Allow-Origin' => '*',
+            'Content-Type' => 'application/json; charset=UTF-8',
+            'Content-Length' => strlen($body),
+        ];
+
         if ($method == 'HEAD') {
             $body = '';
         }
@@ -111,11 +100,17 @@ class Server implements \Psr\Log\LoggerAwareInterface
             $headers['Content-Type'] = 'application/javascript; charset=UTF-8';
         }
 
+        if ($result instanceof Result) {
+            $headers['X-Total-Count'] = $result->getTotalCount();
+            $code = '200';
+        } else {
+            $code = $result->code;
+        }
+ 
         return $this->responseFactory->createResponse($code, null, $headers, $body);
     }
 
-
-    public function optionsResponse()
+    public function optionsResponse(): ResponseInterface
     {
         $headers = [
             'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
