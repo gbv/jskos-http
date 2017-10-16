@@ -54,8 +54,12 @@ class Client extends Service
         foreach ($data as $n => $resource) {
             $class = Resource::guessClassFromTypes($resource['type'] ?? []) 
                 ?? Concept::class;
-            # TODO: enable strict parsing?
-            $data[$n] = new $class($data[$n]);
+            try {
+                # TODO: enable strict parsing?
+                $data[$n] = new $class($data[$n]);
+            } catch(InvalidArgumentException $e) {
+                throw new Error(502, 'JSON response is no valid JSKOS');
+            }
         }
 
 		# TODO: add total, offset, limit of page
