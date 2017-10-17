@@ -28,7 +28,7 @@ This will automatically create `composer.json` for your project (unless it alrea
 
 # Usage and examples
 
-See directory `examples` for example scripts and [jskos-php-examples](https://github.com/gbv/jskos-php-examples) for an example application.
+See directory [examples](examples) for example scripts and [jskos-php-examples](https://github.com/gbv/jskos-php-examples) for an example application.
 
 ## Client
 
@@ -43,6 +43,26 @@ $result = $client->query(['uri'=>$uri]);
 if (count($result)) {
   ...
 }
+~~~
+
+An optional `Http\Client\HttpClient` can be passed as second argument. Use this for instance to log all HTTP requests:
+
+~~~php
+$handler = \GuzzleHttp\HandlerStack::create();
+foreach(['{method} {uri}', '{code} - {res_body}'] as $format) {
+	$handler->unshift(
+		\GuzzleHttp\Middleware::log(
+			$logger, // e.g. Monolog\Logger
+			new \GuzzleHttp\MessageFormatter($format)
+		)
+	);
+}
+
+$httpClient = \Http\Adapter\Guzzle6\Client::createWithConfig([
+    'handler' => $handler,
+]);
+
+$jskoClient = new Client('http://example.org/', $httpClient);
 ~~~
 
 ## Server

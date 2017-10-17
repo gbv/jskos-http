@@ -5,6 +5,7 @@ namespace JSKOS;
 use Http\Client\HttpClient;
 use Http\Discovery\HttpClientDiscovery;
 use Http\Discovery\MessageFactoryDiscovery;
+use InvalidArgumentException;
 
 /**
  * JSKOS API Client
@@ -22,8 +23,8 @@ class Client extends Service
     )
     {
 		$this->baseUrl        = $baseUrl;
-		$this->requestFactory = $requestFactory ?: MessageFactoryDiscovery::find();
 		$this->httpClient     = $client ?: HttpClientDiscovery::find();
+		$this->requestFactory = $requestFactory ?: MessageFactoryDiscovery::find();
 	}
 
 	public function query(array $query=[], string $path=''): Result {
