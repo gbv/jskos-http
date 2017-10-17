@@ -5,7 +5,6 @@ namespace JSKOS;
 use Http\Client\HttpClient;
 use Http\Discovery\HttpClientDiscovery;
 use Http\Discovery\MessageFactoryDiscovery;
-use Http\Client\Exception as ClientException;
 
 /**
  * JSKOS API Client

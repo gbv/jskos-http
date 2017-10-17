@@ -37,10 +37,10 @@ class Result extends Set
     /**
      * Serialize with type and context fields for each member.
      */
-    public function jsonLDSerialize(string $context = self::DEFAULT_CONTEXT, bool $types = true)
+    public function jsonLDSerialize(string $context = self::DEFAULT_CONTEXT, bool $types = NULL)
     {
         return array_map(function($m) use ($context, $types) {
-            return $m->jsonLDSerialize($context, $types); 
+            return $m->jsonLDSerialize($context, $types ?? true); 
         }, $this->members);
     }
 }
