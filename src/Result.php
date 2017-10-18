@@ -7,7 +7,16 @@ namespace JSKOS;
  */
 class Result extends Set
 {
-    protected $totalCount=0;
+    protected $totalCount = 0;
+
+    /**
+     * Create a new Result.
+     */
+    public function __construct(array $members = [])
+    {
+        parent::__construct($members);
+        $this->setTotalCount(count($this));
+    }
 
     /**
      * Ignores the argument to ensure that a Result is always closed.
@@ -18,20 +27,38 @@ class Result extends Set
     }
 
     /**
-     * Get the total number of members including other pages.
+     * Get the total number of members including other pages. May be NULL.
      */
-    public function getTotalCount(): int
+    public function getTotalCount()
     {
         return $this->totalCount;
     }
 
     /**
-     * Append a Resource and possibly increase totalCount.
+     * Set the total number of members including other pages. May be NULL for unknown.
+     */
+    public function setTotalCount(int $count)
+    {
+        $this->totalCount = max($count, count($this));
+    }
+
+    /**
+     * Remove total count.
+     */
+    public function unsetTotalCount()
+    {
+        $this->totalCount = null;
+    }
+
+    /**
+     * Append a Resource and possibly increase totalCount if needed.
      */
     public function append($resource)
     {
         parent::append($resource);
-        $this->totalCount = max($this->totalCount, count($this));
+        if ($this->totalCount !== null) {
+            $this->setTotalCount($this->totalCount);
+        }
     }
 
     /**

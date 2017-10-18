@@ -29,12 +29,24 @@ class ClientTest extends \PHPUnit\Framework\TestCase
     /**
      * @dataProvider provideExamples
      */
-    public function testExamples($body, $expect) {
+    public function testExamples($body, $example) {
         $client = new Client('http://example.org/', $this->mockClient);
 
-        $this->mockResponse(200, [], $body);
+        $expect = new Result($example);
+        $headers = [];
+
+        // test with random values of X-Total-Count or with no value
+        if (rand(0,1)) {
+            $expect->setTotalCount(count($expect) + rand(0,3));
+            $headers['X-Total-Count'] = $expect->getTotalCount();
+        } else {
+            $expect->unsetTotalCount();
+        }
+
+        $this->mockResponse(200, $headers, $body);
         $result = $client->query();
-        $this->assertEquals(new Result($expect), $result);
+
+        $this->assertEquals($expect, $result);
     } 
 
     public function provideExamples() {

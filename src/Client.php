@@ -51,18 +51,24 @@ class Client extends Service
             throw new Error(502, 'Failed to parse JSON', json_last_error_msg());
         }
 
+        $result = new Result();
+        if ($response->hasHeader('X-Total-Count')) {
+            $result->setTotalCount(intval($response->getHeaderLine('X-Total-Count')));
+        } else {
+            $result->unsetTotalCount();
+        }
+
         foreach ($data as $n => $resource) {
             $class = Resource::guessClassFromTypes($resource['type'] ?? []) 
                 ?? Concept::class;
             try {
                 # TODO: enable strict parsing?
-                $data[$n] = new $class($data[$n]);
+                $result->append(new $class($data[$n]));
             } catch(InvalidArgumentException $e) {
                 throw new Error(502, 'JSON response is no valid JSKOS');
             }
         }
 
-		# TODO: add total, offset, limit of page
-        return new Result($data ?? []);
+        return $result;
 	}
 }
