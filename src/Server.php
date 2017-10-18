@@ -84,11 +84,13 @@ class Server implements \Psr\Log\LoggerAwareInterface
     protected function buildResponse($result, $method='GET', $callback=null): ResponseInterface
     {
         $body = $result->json();
+        $context = Resource::DEFAULT_CONTEXT;
 
         $headers = [
             'Access-Control-Allow-Origin' => '*',
             'Content-Type' => 'application/json; charset=UTF-8',
             'Content-Length' => strlen($body),
+            'Link' => "<$context>; rel=\"http://www.w3.org/ns/json-ld#context\"; type=\"application/ld+json\""
         ];
 
         if ($method == 'HEAD') {
